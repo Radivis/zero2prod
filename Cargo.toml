@@ -13,3 +13,4 @@ serde = { version = "1.0.228", features = ["derive"] }
 # They do not get included in the final application binary!
 [dev-dependencies]
 reqwest = "0.12.24"
+rusty-hook = "^0.11.2"
