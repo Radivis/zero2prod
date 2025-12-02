@@ -80,6 +80,11 @@ jobs:
       - name: Run tests
         run: cargo test
 
+      - name: Prepare sqlx cache
+        run: |
+          cargo clean
+          cargo sqlx prepare --workspace -- --all-targets --all-features
+
       - name: Check that queries are fresh
         run: cargo sqlx prepare --workspace --check -- --all-targets
 

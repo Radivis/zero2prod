@@ -27,7 +27,7 @@ pre-commit:
     fmt:
       run: cargo fmt -- --check
     sqlx:
-      run: cargo sqlx prepare --check --workspace
+      run: cargo sqlx prepare --check --workspace -- --all-targets
     clippy:
       run: cargo clippy --workspace --all-targets
     test-compile:
