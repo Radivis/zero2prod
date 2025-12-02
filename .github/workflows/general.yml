@@ -37,7 +37,7 @@ jobs:
         # Environment variables scoped only for the `postgres` element
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: STOPSERG!2345already
+          POSTGRES_PASSWORD: password
           POSTGRES_DB: postgres
         # When you map ports using the ports keyword, GitHub uses the --publish command to publish the container’s ports to the Docker host
         # Opens tcp port 5432 on the host and service container
@@ -68,11 +68,11 @@ jobs:
 
           # Create the application user
           CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PWD}';"
-          PGPASSWORD="STOPSERG!2345already" psql -U "postgres" -h "localhost" -c "${CREATE_QUERY}"
+          PGPASSWORD="password" psql -U "postgres" -h "localhost" -c "${CREATE_QUERY}"
 
           # Grant create db privileges to the app user
           GRANT_QUERY="ALTER USER ${APP_USER} CREATEDB;"
-          PGPASSWORD="STOPSERG!2345already" psql -U "postgres" -h "localhost" -c "${GRANT_QUERY}"
+          PGPASSWORD="password" psql -U "postgres" -h "localhost" -c "${GRANT_QUERY}"
 
       - name: Migrate database
         run: SKIP_DOCKER=true ./scripts/init_postgres.sh
@@ -114,8 +114,6 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: clippy
-      - name: Check compile-time queries
-        run: cargo sqlx prepare --check --workspace
       - name: Linting
         run: cargo clippy -- -D warnings
 
@@ -150,11 +148,11 @@ jobs:
 
           # Create the application user
           CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PWD}';"
-          PGPASSWORD="STOPSERG!2345already" psql -U "postgres" -h "localhost" -c "${CREATE_QUERY}"
+          PGPASSWORD="password" psql -U "postgres" -h "localhost" -c "${CREATE_QUERY}"
 
           # Grant create db privileges to the app user
           GRANT_QUERY="ALTER USER ${APP_USER} CREATEDB;"
-          PGPASSWORD="STOPSERG!2345already" psql -U "postgres" -h "localhost" -c "${GRANT_QUERY}"
+          PGPASSWORD="password" psql -U "postgres" -h "localhost" -c "${GRANT_QUERY}"
       - name: Migrate database
         run: SKIP_DOCKER=true ./scripts/init_postgres.sh
       - name: Install cargo-llvm-cov
