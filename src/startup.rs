@@ -1,5 +1,4 @@
 use actix_web::dev::Server;
-use actix_web::web::Data;
 use actix_web::{App, HttpServer, web};
 use actix_web::middleware::Logger;
 use sqlx::PgPool;
