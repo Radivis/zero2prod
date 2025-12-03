@@ -5,8 +5,8 @@
 // `cargo expand --test health_check` (<- name of the test file)
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
-use std::time::Duration;
 use std::sync::LazyLock;
+use std::time::Duration;
 use uuid::Uuid;
 use zero2prod::configuration::{DatabaseSettings, get_configuration};
 use zero2prod::startup::run;
@@ -21,18 +21,10 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
     // `get_subscriber`, therefore they are not the same type. We could work around
     // it, but this is the most straight-forward way of moving forward.
     if std::env::var("TEST_LOG").is_ok() {
-        let subscriber = get_subscriber(
-            subscriber_name,
-            default_filter_level,
-            std::io::stdout
-        );
+        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
         init_subscriber(subscriber);
     } else {
-        let subscriber = get_subscriber(
-            subscriber_name,
-            default_filter_level,
-            std::io::sink
-        );
+        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::sink);
         init_subscriber(subscriber);
     }
 });

@@ -22,10 +22,11 @@ output:
   - failure    # Always shows errors (default, but explicit is good)
 
 pre-commit:
-  parallel: true
+  parallel: false
   commands:
     fmt:
       run: cargo fmt
+      stage_fixed: true
     sqlx:
       run: cargo sqlx prepare --check --workspace -- --all-targets
     clippy:
