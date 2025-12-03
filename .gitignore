@@ -1,2 +1,6 @@
 /target
 !/scripts/README.md
+# Coverage reports
+lcov.info
+/coverage/
+/target/
