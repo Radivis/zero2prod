@@ -1,4 +1,5 @@
 /target
+.env
 !/scripts/README.md
 # Coverage reports
 lcov.info
