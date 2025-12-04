@@ -69,7 +69,7 @@ impl DatabaseSettings {
             .port(self.port)
             .database(&self.database_name)
             .username(&self.username)
-            .password(&self.password.expose_secret())
+            .password(self.password.expose_secret())
             .ssl_mode(ssl_mode)
     }
 }
