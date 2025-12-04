@@ -37,7 +37,7 @@ RUN apt-get update -y \
 && apt-get install -y --no-install-recommends openssl ca-certificates \
 && apt-get autoremove -y \
 && apt-get clean -y \
-&& rm -rf /var/lib/apt/lists/* \
+&& rm -rf /var/lib/apt/lists/*
 
 # Copy the compiled binary from the builder environment
 # to our runtime environment
