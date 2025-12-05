@@ -1,10 +1,10 @@
 use validator::ValidateEmail;
 
 #[derive(Debug)]
-pub struct SubscriberEmail(String);
+pub struct SubscriberEmailAddress(String);
 
-impl SubscriberEmail {
-    pub fn parse(s: String) -> Result<SubscriberEmail, String> {
+impl SubscriberEmailAddress {
+    pub fn parse(s: String) -> Result<SubscriberEmailAddress, String> {
         if s.validate_email() {
             Ok(Self(s))
         } else {
@@ -13,7 +13,7 @@ impl SubscriberEmail {
     }
 }
 
-impl AsRef<str> for SubscriberEmail {
+impl AsRef<str> for SubscriberEmailAddress {
     fn as_ref(&self) -> &str {
         &self.0
     }
@@ -21,7 +21,7 @@ impl AsRef<str> for SubscriberEmail {
 
 #[cfg(test)]
 mod tests {
-    use super::SubscriberEmail;
+    use super::SubscriberEmailAddress;
     use claims::{assert_err, assert_ok};
     use rand::SeedableRng;
     use rand::rngs::StdRng;
@@ -54,35 +54,35 @@ mod tests {
     #[test]
     fn empty_string_is_rejected() {
         let email = "".to_string();
-        assert_err!(SubscriberEmail::parse(email));
+        assert_err!(SubscriberEmailAddress::parse(email));
     }
     #[test]
     fn email_missing_at_symbol_is_rejected() {
         let email = "ursuladomain.com".to_string();
-        assert_err!(SubscriberEmail::parse(email));
+        assert_err!(SubscriberEmailAddress::parse(email));
     }
 
     #[test]
     fn email_missing_subject_is_rejected() {
         let email = "@domain.com".to_string();
-        assert_err!(SubscriberEmail::parse(email));
+        assert_err!(SubscriberEmailAddress::parse(email));
     }
 
     #[test]
     fn a_valid_email_is_parsed_successfully() {
         let email = "ursula@domain.com".to_string();
-        assert_ok!(SubscriberEmail::parse(email));
+        assert_ok!(SubscriberEmailAddress::parse(email));
     }
 
     #[test]
     fn random_valid_emails_are_parsed_successfully() {
         let email = SafeEmail().fake();
-        claims::assert_ok!(SubscriberEmail::parse(email));
+        claims::assert_ok!(SubscriberEmailAddress::parse(email));
     }
 
     #[quickcheck_macros::quickcheck]
     fn valid_emails_are_parsed_successfully(valid_email: ValidEmailFixture) -> bool {
         dbg!(&valid_email.0);
-        SubscriberEmail::parse(valid_email.0).is_ok()
+        SubscriberEmailAddress::parse(valid_email.0).is_ok()
     }
 }
