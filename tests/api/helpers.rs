@@ -51,6 +51,7 @@ pub async fn spawn_app() -> TestApp {
         .expect("Failed to build application.");
     let address = format!("http://127.0.0.1:{}", application.port());
 
+    #[allow(clippy::let_underscore_future)]
     let _ = tokio::spawn(application.run_until_stopped());
 
     TestApp {
