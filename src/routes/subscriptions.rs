@@ -42,7 +42,6 @@ pub async fn subscribe(
     connection_pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
 ) -> HttpResponse {
-    tracing::info!("Calling subscribe");
     // `web::Form` is a wrapper around `FormData`
     // `form.0` gives us access to the underlying `FormData`
     let new_subscriber = match form.0.try_into() {
@@ -58,16 +57,26 @@ pub async fn subscribe(
     }
     // Send a (useless) email to the new subscriber.
     // We are ignoring email delivery errors for now.
+    let confirmation_link = "https://there-is-no-such-domain.com/subscriptions/confirm";
     tracing::debug!(
         "Trying to send email to subscriber via email_client: {:?}",
         &email_client
+    );
+    let text_content: String = format!(
+        "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
+        confirmation_link
+    );
+    let html_content = format!(
+        "Welcome to our newsletter!<br />\
+        Click <a href=\"{}\">here</a> to confirm your subscription.",
+        confirmation_link
     );
     match email_client
         .send_email(EmailData {
             recipient: new_subscriber.email,
             subject: "Welcome!".into(),
-            text_content: "Welcome to our newsletter!".into(),
-            html_content: "Welcome to our newsletter!".into(),
+            text_content,
+            html_content,
         })
         .await
     {
