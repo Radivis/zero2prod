@@ -64,7 +64,6 @@ pub fn run(
     // Wrap the pool using web::Data, which boils down to an Arc smart pointer
     let connection_pool = web::Data::new(connection_pool);
     let email_client = web::Data::new(email_client);
-    tracing::debug!("running app with email_client data: {:?}", &email_client);
     // Capture `connection` from the surrounding environment
     let server = HttpServer::new(move || {
         App::new()

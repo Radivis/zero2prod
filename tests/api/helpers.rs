@@ -3,13 +3,13 @@ use secrecy::Secret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
-use tracing_appender::non_blocking::WorkerGuard;
+use tracing_appender::non_blocking::{NonBlocking, WorkerGuard};
 use uuid::Uuid;
 use wiremock::MockServer;
 
 use zero2prod::configuration::{DatabaseSettings, get_configuration};
 use zero2prod::startup::Application;
-use zero2prod::telemetry::init_subscriber;
+use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
 // This holds the guard for the entire lifetime of the test process
 static LOG_GUARD: Lazy<Mutex<Option<WorkerGuard>>> = Lazy::new(|| Mutex::new(None));
@@ -17,37 +17,33 @@ static LOG_GUARD: Lazy<Mutex<Option<WorkerGuard>>> = Lazy::new(|| Mutex::new(Non
 // Ensure that the `tracing` stack is only initialised once using `LazyLock`
 
 static TRACING: LazyLock<()> = LazyLock::new(|| {
-    /*let default_filter_level = "info".to_string();
+    let default_filter_level = "info".to_string();
     let subscriber_name = "test".to_string();
+    let loglevel = std::env::var("LOGLEVEL").unwrap_or_else(|_| default_filter_level);
     // We cannot assign the output of `get_subscriber` to a variable based on the
     // value TEST_LOG` because the sink is part of the type returned by
     // `get_subscriber`, therefore they are not the same type. We could work around
     // it, but this is the most straight-forward way of moving forward.
     if std::env::var("TEST_LOG").is_ok() {
-        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
+        let subscriber = get_subscriber(subscriber_name, loglevel, std::io::stdout);
         init_subscriber(subscriber);
     } else {
-        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::sink);
+        let subscriber = get_subscriber(subscriber_name, loglevel, test_writer());
         init_subscriber(subscriber);
-    }*/
+    }
+});
+
+pub fn test_writer() -> NonBlocking {
+    let _ = std::fs::create_dir_all("tests/logs");
     let file_appender = tracing_appender::rolling::never("tests/logs", "integration.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
-    // Store the guard so it lives forever
-    let mut guard_slot = LOG_GUARD.lock().unwrap();
-    *guard_slot = Some(guard);
+    // Store guard so it lives until process end
+    let mut slot = LOG_GUARD.lock().unwrap();
+    *slot = Some(guard);
 
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .with_writer(non_blocking)
-        .with_ansi(false)
-        .with_target(true)
-        .with_line_number(true)
-        .with_thread_names(true)
-        .with_file(true)
-        .with_env_filter("debug")
-        .init();
-});
+    non_blocking
+}
 
 #[derive(Debug)]
 pub struct TestApp {

@@ -30,7 +30,7 @@ pub fn parse_subscriber(form: FormData) -> Result<NewSubscriber, String> {
 
 #[tracing::instrument(
     name = "Adding a new subscriber",
-    skip(form, connection_pool),
+    skip(form, connection_pool, email_client),
     fields(
         subscriber_email = %form.email,
         subscriber_name = %form.name
