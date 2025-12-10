@@ -1,4 +1,5 @@
 use crate::domain::{NewSubscriber, SubscriberEmailAddress, SubscriberName};
+use crate::email_client::{EmailClient, EmailData};
 use actix_web::{HttpResponse, web};
 use chrono::Utc;
 use sqlx::PgPool;
@@ -39,16 +40,42 @@ pub async fn subscribe(
     form: web::Form<FormData>,
     // Retrieving a connection from the application state!
     connection_pool: web::Data<PgPool>,
+    email_client: web::Data<EmailClient>,
 ) -> HttpResponse {
+    tracing::info!("Calling subscribe");
     // `web::Form` is a wrapper around `FormData`
     // `form.0` gives us access to the underlying `FormData`
     let new_subscriber = match form.0.try_into() {
         Ok(form) => form,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
-    match insert_subscriber(&connection_pool, &new_subscriber).await {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+    if insert_subscriber(&connection_pool, &new_subscriber)
+        .await
+        .is_err()
+    {
+        tracing::error!("Failed to insert subscriber into database");
+        return HttpResponse::InternalServerError().finish();
+    }
+    // Send a (useless) email to the new subscriber.
+    // We are ignoring email delivery errors for now.
+    tracing::debug!(
+        "Trying to send email to subscriber via email_client: {:?}",
+        &email_client
+    );
+    match email_client
+        .send_email(EmailData {
+            recipient: new_subscriber.email,
+            subject: "Welcome!".into(),
+            text_content: "Welcome to our newsletter!".into(),
+            html_content: "Welcome to our newsletter!".into(),
+        })
+        .await
+    {
+        Ok(_success) => HttpResponse::Ok().finish(),
+        Err(error) => {
+            tracing::error!("Failed to send email to subscriber: {:?}", error);
+            HttpResponse::InternalServerError().finish()
+        }
     }
 }
 

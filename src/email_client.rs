@@ -2,6 +2,7 @@ use crate::domain::SubscriberEmailAddress;
 use reqwest::Client;
 use secrecy::{ExposeSecret, Secret};
 
+#[derive(Clone, Debug)]
 pub struct EmailClient {
     base_url: String,
     http_client: Client,
@@ -19,11 +20,12 @@ struct SendEmailRequest<'a> {
     text_body: &'a str,
 }
 
-pub struct EmailData<'a> {
-    recipient: SubscriberEmailAddress,
-    subject: &'a str,
-    html_content: &'a str,
-    text_content: &'a str,
+#[derive(Debug)]
+pub struct EmailData {
+    pub recipient: SubscriberEmailAddress,
+    pub subject: String,
+    pub html_content: String,
+    pub text_content: String,
 }
 
 impl EmailClient {
@@ -41,15 +43,17 @@ impl EmailClient {
             authorization_token,
         }
     }
-    pub async fn send_email<'a>(self, data: EmailData<'a>) -> Result<(), reqwest::Error> {
+
+    #[tracing::instrument(name = "Sending email")]
+    pub async fn send_email(&self, data: EmailData) -> Result<(), reqwest::Error> {
         // No matter the input
         let url = format!("{}/email", self.base_url);
         let request_body = SendEmailRequest {
             from: self.sender.as_ref(),
             to: data.recipient.as_ref(),
-            subject: data.subject,
-            html_body: data.html_content,
-            text_body: data.text_content,
+            subject: &data.subject,
+            html_body: &data.html_content,
+            text_body: &data.text_content,
         };
         let _builder = self
             .http_client
@@ -61,7 +65,11 @@ impl EmailClient {
             .json(&request_body)
             .send()
             .await?
-            .error_for_status()?;
+            .error_for_status()
+            .map_err(|e| {
+                tracing::error!("Failed to send email: {:?}", e);
+                e
+            })?;
         Ok(())
     }
 }
@@ -111,23 +119,23 @@ mod tests {
         SubscriberEmailAddress::parse(SafeEmail().fake()).unwrap()
     }
 
-    fn get_email_client_test_instance(base_url: String) -> EmailClient {
+    fn get_email_client_test_instance(base_url: &str) -> EmailClient {
         EmailClient::new(
-            base_url,
+            base_url.into(),
             generate_random_subscriber_email_address(),
             Secret::new(Faker.fake()),
             std::time::Duration::from_millis(200),
         )
     }
 
-    async fn send_random_email(email_client: EmailClient) -> Result<(), reqwest::Error> {
+    async fn send_random_email(email_client: &EmailClient) -> Result<(), reqwest::Error> {
         let content = generate_random_email_content();
         email_client
             .send_email(EmailData {
                 recipient: generate_random_subscriber_email_address(),
-                subject: &generate_random_email_subject(),
-                html_content: &content,
-                text_content: &content,
+                subject: generate_random_email_subject(),
+                html_content: content.clone(),
+                text_content: content,
             })
             .await
     }
@@ -136,7 +144,8 @@ mod tests {
     async fn send_email_sends_the_expected_request() {
         // Arrange
         let mock_server = MockServer::start().await;
-        let email_client = get_email_client_test_instance(mock_server.uri());
+        tracing::debug!("mock server started with url {}", &(mock_server.uri()));
+        let email_client = get_email_client_test_instance(&mock_server.uri());
         Mock::given(header_exists("X-Postmark-Server-Token"))
             .and(header("Content-Type", "application/json"))
             .and(path("/email"))
@@ -148,7 +157,7 @@ mod tests {
             .mount(&mock_server)
             .await;
         // Act
-        let _ = send_random_email(email_client).await;
+        let _ = send_random_email(&email_client).await;
         // Assert
         // Mock expectations are checked on drop
     }
@@ -158,7 +167,8 @@ mod tests {
     async fn send_email_succeeds_if_the_server_returns_200() {
         // Arrange
         let mock_server = MockServer::start().await;
-        let email_client = get_email_client_test_instance(mock_server.uri());
+        tracing::debug!("mock server started with url {}", mock_server.uri());
+        let email_client = get_email_client_test_instance(&mock_server.uri());
         // We do not copy in all the matchers we have in the other test.
         // The purpose of this test is not to assert on the request we
         // are sending out!
@@ -170,7 +180,7 @@ mod tests {
             .mount(&mock_server)
             .await;
         // Act
-        let outcome = send_random_email(email_client).await;
+        let outcome = send_random_email(&email_client).await;
         // Assert
         assert_ok!(outcome);
     }
@@ -179,7 +189,8 @@ mod tests {
     async fn send_email_fails_if_the_server_returns_500() {
         // Arrange
         let mock_server = MockServer::start().await;
-        let email_client = get_email_client_test_instance(mock_server.uri());
+        tracing::debug!("mock server started with url {}", mock_server.uri());
+        let email_client = get_email_client_test_instance(&mock_server.uri());
         Mock::given(any())
             // Not a 200 anymore!
             .respond_with(ResponseTemplate::new(500))
@@ -187,7 +198,7 @@ mod tests {
             .mount(&mock_server)
             .await;
         // Act
-        let outcome = send_random_email(email_client).await;
+        let outcome = send_random_email(&email_client).await;
         // Assert
         assert_err!(outcome);
     }
@@ -196,7 +207,8 @@ mod tests {
     async fn send_email_times_out_if_the_server_takes_too_long() {
         // Arrange
         let mock_server = MockServer::start().await;
-        let email_client = get_email_client_test_instance(mock_server.uri());
+        tracing::debug!("mock server started with url {}", mock_server.uri());
+        let email_client = get_email_client_test_instance(&mock_server.uri());
         let response = ResponseTemplate::new(200)
             // 3 minutes!
             .set_delay(std::time::Duration::from_secs(180));
@@ -206,7 +218,7 @@ mod tests {
             .mount(&mock_server)
             .await;
         // Act
-        let outcome = send_random_email(email_client).await;
+        let outcome = send_random_email(&email_client).await;
         // Assert
         assert_err!(outcome);
     }

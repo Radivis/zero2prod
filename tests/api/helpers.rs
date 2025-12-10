@@ -1,15 +1,23 @@
+use once_cell::sync::Lazy;
 use secrecy::Secret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
+use tracing_appender::non_blocking::WorkerGuard;
 use uuid::Uuid;
+use wiremock::MockServer;
+
 use zero2prod::configuration::{DatabaseSettings, get_configuration};
 use zero2prod::startup::Application;
-use zero2prod::telemetry::{get_subscriber, init_subscriber};
+use zero2prod::telemetry::init_subscriber;
+
+// This holds the guard for the entire lifetime of the test process
+static LOG_GUARD: Lazy<Mutex<Option<WorkerGuard>>> = Lazy::new(|| Mutex::new(None));
 
 // Ensure that the `tracing` stack is only initialised once using `LazyLock`
+
 static TRACING: LazyLock<()> = LazyLock::new(|| {
-    let default_filter_level = "info".to_string();
+    /*let default_filter_level = "info".to_string();
     let subscriber_name = "test".to_string();
     // We cannot assign the output of `get_subscriber` to a variable based on the
     // value TEST_LOG` because the sink is part of the type returned by
@@ -21,11 +29,31 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
     } else {
         let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::sink);
         init_subscriber(subscriber);
-    }
+    }*/
+    let file_appender = tracing_appender::rolling::never("tests/logs", "integration.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+
+    // Store the guard so it lives forever
+    let mut guard_slot = LOG_GUARD.lock().unwrap();
+    *guard_slot = Some(guard);
+
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .with_writer(non_blocking)
+        .with_ansi(false)
+        .with_target(true)
+        .with_line_number(true)
+        .with_thread_names(true)
+        .with_file(true)
+        .with_env_filter("debug")
+        .init();
 });
+
+#[derive(Debug)]
 pub struct TestApp {
     pub address: String,
     pub connection_pool: PgPool,
+    pub email_server: MockServer,
 }
 
 impl TestApp {
@@ -40,10 +68,14 @@ impl TestApp {
     }
 }
 
+#[tracing::instrument(name = "Spawning test application")]
 pub async fn spawn_app() -> TestApp {
     // The first time `initialize` is invoked the code in `TRACING` is executed.
     // All other invocations will instead skip execution.
     LazyLock::force(&TRACING);
+
+    // Launch a mock server to stand in for Postmark's API
+    let email_server = MockServer::start().await;
 
     // Randomise configuration to ensure test isolation
     let configuration = {
@@ -52,6 +84,7 @@ pub async fn spawn_app() -> TestApp {
         c.database.database_name = Uuid::new_v4().to_string();
         // Use a random OS port
         c.application.port = 0;
+        c.email_client.base_url = email_server.uri();
         c
     };
 
@@ -66,10 +99,15 @@ pub async fn spawn_app() -> TestApp {
     #[allow(clippy::let_underscore_future)]
     let _ = tokio::spawn(application.run_until_stopped());
 
-    TestApp {
+    let test_app = TestApp {
         address,
         connection_pool,
-    }
+        email_server,
+    };
+
+    tracing::debug!("test_app spawned with details: {:?}", &test_app);
+
+    test_app
 }
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
