@@ -56,6 +56,9 @@ jobs:
       - name: Install the Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@cargo-nextest
+
       - name: Install sqlx-cli
         run: cargo install sqlx-cli
           --version=${{ env.SQLX_VERSION }}
@@ -77,8 +80,20 @@ jobs:
       - name: Migrate database
         run: SKIP_DOCKER=true ./scripts/init_postgres.sh
 
-      - name: Run tests
-        run: cargo test
+      - name: Run tests with nextest
+        run: cargo nextest run --profile ci --no-fail-fast  # --no-fail-fast for full coverage
+
+      - name: Upload test results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: |
+            target/nextest/junit.xml
+            tests/logs/nextest/*.log
+
+      - name: Run doctests
+        run: cargo test --doc
 
       - name: Prepare sqlx cache
         run: |

@@ -5,5 +5,16 @@ dir = "target/nextest"
 
 [[profile.default.overrides]]
 filter = "test(^zero2prod::)"
-# Run integration tests in separate processes (this is the magic)
+
+# Run integration tests in separate processes to enable one logfile per test
 process-isolation = true
+
+[profile.ci]
+junit = { path = "target/nextest/junit.xml" }
+failure-output = "immediate"
+# Do not cancel the test run on the first failure.
+fail-fast = false
+retries = 2
+
+[profile.ci.override-default]
+detect-ci = true
