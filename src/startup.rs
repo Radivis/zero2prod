@@ -18,6 +18,12 @@ pub struct Application {
     server: Server,
 }
 
+// We need to define a wrapper type in order to retrieve the URL
+// in the `subscribe` handler.
+// Retrieval from the context, in actix-web, is type-based: using
+// a raw `String` would expose us to conflicts.
+pub struct ApplicationBaseUrl(pub String);
+
 impl Application {
     pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
         let connection_pool = get_connection_pool(&configuration.database);
@@ -38,7 +44,12 @@ impl Application {
         );
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr()?.port();
-        let server = run(listener, connection_pool, email_client)?;
+        let server = run(
+            listener,
+            connection_pool,
+            email_client,
+            configuration.application.base_url,
+        )?;
 
         Ok(Self { port, server })
     }
@@ -59,11 +70,13 @@ pub fn run(
     listener: TcpListener,
     connection_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> Result<Server, std::io::Error> {
     tracing::debug!("running app with email_client: {:?}", &email_client);
     // Wrap the pool using web::Data, which boils down to an Arc smart pointer
     let connection_pool = web::Data::new(connection_pool);
     let email_client = web::Data::new(email_client);
+    let base_url = web::Data::new(ApplicationBaseUrl(base_url));
     // Capture `connection` from the surrounding environment
     let server = HttpServer::new(move || {
         App::new()
@@ -76,6 +89,7 @@ pub fn run(
             // Get a pointer copy of the connection pool and attach it to the application state
             .app_data(connection_pool.clone())
             .app_data(email_client.clone())
+            .app_data(base_url.clone())
     })
     .listen(listener)?
     .run();

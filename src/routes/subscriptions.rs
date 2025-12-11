@@ -1,5 +1,6 @@
 use crate::domain::{NewSubscriber, SubscriberEmailAddress, SubscriberName};
 use crate::email_client::{EmailClient, EmailData};
+use crate::startup::ApplicationBaseUrl;
 use actix_web::{HttpResponse, web};
 use chrono::Utc;
 use sqlx::PgPool;
@@ -30,7 +31,7 @@ pub fn parse_subscriber(form: FormData) -> Result<NewSubscriber, String> {
 
 #[tracing::instrument(
     name = "Adding a new subscriber",
-    skip(form, connection_pool, email_client),
+    skip(form, connection_pool, email_client, base_url),
     fields(
         subscriber_email = %form.email,
         subscriber_name = %form.name
@@ -41,6 +42,7 @@ pub async fn subscribe(
     // Retrieving a connection from the application state!
     connection_pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
+    base_url: web::Data<ApplicationBaseUrl>,
 ) -> HttpResponse {
     // `web::Form` is a wrapper around `FormData`
     // `form.0` gives us access to the underlying `FormData`
@@ -55,7 +57,7 @@ pub async fn subscribe(
         tracing::error!("Failed to insert subscriber into database");
         return HttpResponse::InternalServerError().finish();
     }
-    match send_confirmation_email(&email_client, new_subscriber).await {
+    match send_confirmation_email(&email_client, new_subscriber, &base_url.0).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(error) => {
             tracing::error!("Failed to send email to subscriber: {:?}", error);
@@ -93,13 +95,18 @@ pub async fn insert_subscriber(
 
 #[tracing::instrument(
     name = "Send a confirmation email to a new subscriber",
-    skip(email_client, new_subscriber)
+    skip(email_client, new_subscriber, base_url)
 )]
 pub async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
+    base_url: &str,
 ) -> Result<(), reqwest::Error> {
-    let confirmation_link = "https://there-is-no-such-domain.com/subscriptions/confirm";
+    let subscription_token = Uuid::new_v4().to_string();
+    let confirmation_link = format!(
+        "{}/subscriptions/confirm?subscription_token={}",
+        base_url, subscription_token
+    );
     tracing::debug!(
         "Trying to send email to subscriber via email_client: {:?}",
         &email_client

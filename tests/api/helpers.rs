@@ -65,6 +65,7 @@ pub fn test_writer() -> NonBlocking {
 #[derive(Debug)]
 pub struct TestApp {
     pub address: String,
+    pub port: u16,
     pub connection_pool: PgPool,
     pub email_server: MockServer,
 }
@@ -108,12 +109,14 @@ pub async fn spawn_app() -> TestApp {
         .await
         .expect("Failed to build application.");
     let address = format!("http://127.0.0.1:{}", application.port());
+    let port = application.port();
 
     #[allow(clippy::let_underscore_future)]
     let _ = tokio::spawn(application.run_until_stopped());
 
     let test_app = TestApp {
         address,
+        port,
         connection_pool,
         email_server,
     };
