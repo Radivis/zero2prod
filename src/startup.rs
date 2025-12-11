@@ -7,7 +7,7 @@ use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
 
 use crate::email_client::EmailClient;
-use crate::routes::{health_check, subscribe};
+use crate::routes::{confirm, health_check, subscribe};
 
 pub fn get_connection_pool(db_configuration: &DatabaseSettings) -> PgPool {
     PgPoolOptions::new().connect_lazy_with(db_configuration.connect_options())
@@ -72,6 +72,7 @@ pub fn run(
             .route("/health_check", web::get().to(health_check))
             // A new entry in our routing table for POST /subscriptions requests
             .route("/subscriptions", web::post().to(subscribe))
+            .route("/subscriptions/confirm", web::get().to(confirm))
             // Get a pointer copy of the connection pool and attach it to the application state
             .app_data(connection_pool.clone())
             .app_data(email_client.clone())
