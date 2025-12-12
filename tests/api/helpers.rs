@@ -183,13 +183,13 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
 
 pub async fn mount_mock_email_server(
     email_server: &MockServer,
-    num_expected_requests: Option<Times>,
+    request_num_expectation: Option<Times>,
 ) -> () {
     let mock = Mock::given(path("/email"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200));
-    if let Some(expected) = num_expected_requests {
-        mock.expect(expected).mount(email_server).await
+    if let Some(num_expected_requests) = request_num_expectation {
+        mock.expect(num_expected_requests).mount(email_server).await
     } else {
         mock.mount(email_server).await
     }
