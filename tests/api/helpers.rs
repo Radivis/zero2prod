@@ -72,7 +72,7 @@ pub struct ConfirmationLinks {
 pub struct TestApp {
     pub address: String,
     pub port: u16,
-    pub connection_pool: PgPool,
+    pub db_connection_pool: PgPool,
     pub email_server: MockServer,
 }
 
@@ -131,7 +131,7 @@ pub async fn spawn_app() -> TestApp {
         c
     };
 
-    let connection_pool = configure_database(&configuration.database).await;
+    let db_connection_pool = configure_database(&configuration.database).await;
 
     // Notice the .clone!
     let application = Application::build(configuration.clone())
@@ -146,7 +146,7 @@ pub async fn spawn_app() -> TestApp {
     let test_app = TestApp {
         address,
         port,
-        connection_pool,
+        db_connection_pool,
         email_server,
     };
 

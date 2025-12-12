@@ -21,6 +21,7 @@ tracing-actix-web = "0.7"
 unicode-segmentation = "1"
 uuid = { version = "1", features = ["v4"] }
 validator = "0.20"
+anyhow = "1.0.100"
 
 [dependencies.reqwest]
 version = "0.12.24"
