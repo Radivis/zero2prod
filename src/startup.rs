@@ -1,6 +1,7 @@
 use crate::configuration::{DatabaseSettings, Settings};
 use actix_web::dev::Server;
 use actix_web::{App, HttpServer, web};
+use secrecy::Secret;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use std::net::TcpListener;
@@ -25,7 +26,11 @@ struct AppServerParams {
     connection_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
+    hmac_secret: Secret<String>,
 }
+
+#[derive(Clone)]
+pub struct HmacSecret(pub Secret<String>);
 
 // We need to define a wrapper type in order to retrieve the URL
 // in the `subscribe` handler.
@@ -58,6 +63,7 @@ impl Application {
             connection_pool,
             email_client,
             base_url: configuration.application.base_url,
+            hmac_secret: configuration.application.hmac_secret,
         })?;
 
         Ok(Self { port, server })
@@ -84,6 +90,7 @@ fn run(app_server_params: AppServerParams) -> Result<Server, std::io::Error> {
     let connection_pool = web::Data::new(app_server_params.connection_pool);
     let email_client = web::Data::new(app_server_params.email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(app_server_params.base_url));
+    let hmac_secret = web::Data::new(HmacSecret(app_server_params.hmac_secret));
     // Capture `connection` from the surrounding environment
     let server = HttpServer::new(move || {
         App::new()
@@ -100,6 +107,7 @@ fn run(app_server_params: AppServerParams) -> Result<Server, std::io::Error> {
             .app_data(connection_pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())
+            .app_data(hmac_secret.clone())
     })
     .listen(app_server_params.listener)?
     .run();
