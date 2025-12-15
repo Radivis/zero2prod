@@ -6,6 +6,7 @@ edition = "2024"
 
 [dependencies]
 actix-web = "4"
+actix-web-flash-messages = { version = "0.5", features = ["cookies"] }
 anyhow = "1"
 argon2 = { version = "0.5", features = ["std"] }
 base64 = "0.22"
@@ -35,7 +36,7 @@ validator = "0.20"
 version = "0.12.24"
 default-features = false
 # We need the `json` feature flag to serialize/deserialize JSON payloads
-features = ["json", "rustls-tls"]
+features = ["cookies", "json", "rustls-tls"]
 
 # Using table-like toml syntax to avoid a super-long line!
 [dependencies.sqlx]
