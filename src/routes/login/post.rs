@@ -2,6 +2,7 @@ use actix_web::http::header::LOCATION;
 use actix_web::{HttpResponse, web};
 use secrecy::Secret;
 
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 pub struct FormData {
     username: String,
