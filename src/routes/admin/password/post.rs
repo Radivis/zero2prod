@@ -33,6 +33,18 @@ pub async fn change_password(
         .send();
         return Ok(see_other("/admin/password"));
     }
+
+    if form.new_password.expose_secret().replace(" ", "").len() < 12 {
+        FlashMessage::error("The new password must have at least 12 characters besides spaces.")
+            .send();
+        return Ok(see_other("/admin/password"));
+    }
+
+    if form.new_password.expose_secret().len() > 128 {
+        FlashMessage::error("The new password must not have more than 128 characters.").send();
+        return Ok(see_other("/admin/password"));
+    }
+
     let username = get_username(user_id, &pool).await.map_err(e500)?;
     let credentials = Credentials {
         username,
