@@ -1,4 +1,3 @@
-use actix_session::Session;
 use actix_web::error::InternalError;
 use actix_web::http::header::LOCATION;
 use actix_web::{HttpResponse, web};
@@ -7,7 +6,7 @@ use secrecy::Secret;
 use sqlx::PgPool;
 
 use crate::authentication::{AuthError, Credentials, validate_credentials};
-use crate::startup::HmacSecret;
+use crate::session_state::TypedSession;
 use crate::telemetry::error_chain_fmt;
 
 #[allow(dead_code)]
@@ -32,14 +31,13 @@ impl std::fmt::Debug for LoginError {
 }
 
 #[tracing::instrument(
-    skip(form, pool, session, _secret),
+    skip(form, pool, session),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn login(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
-    session: Session,
-    _secret: web::Data<HmacSecret>,
+    session: TypedSession,
 ) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form.0.username,
@@ -50,8 +48,9 @@ pub async fn login(
     match validate_credentials(credentials, &pool).await {
         Ok(user_id) => {
             tracing::Span::current().record("user_id", tracing::field::display(&user_id));
+            session.renew();
             let _ = session
-                .insert("user_id", user_id)
+                .insert_user_id(user_id)
                 .map_err(|e| login_redirect(LoginError::UnexpectedError(e.into())));
             Ok(HttpResponse::SeeOther()
                 .insert_header((LOCATION, "/admin/dashboard"))
